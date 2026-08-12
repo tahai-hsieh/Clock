@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>大海專屬時鐘</title>
     
-    <!-- iOS / iPadOS Safari 加入主畫面專用圖示 (需在同資料夾放置 icon.png) -->
-    <link id="appleIcon" rel="apple-touch-icon" sizes="180x180" href="icon.png">
-    <!-- Android / Chrome / 一般瀏覽器分頁圖示 -->
+    <!-- 1. 加入主畫面：直接使用原始 icon.png (保持原圖方形) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+    
+    <!-- 2. 網頁分頁圖標：預設先載入 icon.png (後續由 JS 自動裁切成圓形) -->
     <link id="favicon" rel="icon" type="image/png" href="icon.png">
 
     <style>
@@ -281,8 +282,8 @@
     </div>
 
     <script>
-        // --- 0. 自動將 icon.png 裁切轉換為圓形圖示 ---
-        function makeIconCircle() {
+        // --- 0. 僅將網頁分頁圖標 (Favicon) 裁切轉換為圓形，保持加入主畫面為原圖 ---
+        function makeFaviconCircle() {
             const img = new Image();
             img.crossOrigin = "Anonymous";
             img.src = 'icon.png';
@@ -301,11 +302,11 @@
                 ctx.drawImage(img, 0, 0, size, size);
 
                 const circularDataUrl = canvas.toDataURL('image/png');
-                document.getElementById('appleIcon').href = circularDataUrl;
+                // 僅替換分頁標籤列的圖示，不影響 apple-touch-icon
                 document.getElementById('favicon').href = circularDataUrl;
             };
         }
-        makeIconCircle();
+        makeFaviconCircle();
 
         // --- 1. 精確時鐘 (毫秒 + 強制 24 小時制) ---
         function updateClock() {
