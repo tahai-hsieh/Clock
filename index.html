@@ -108,8 +108,8 @@
             margin: 10px 0;
         }
 
-        /* 碼表計圈清單樣式 */
-        .lap-list {
+        /* 鬧鐘與碼表清單樣式 */
+        .item-list {
             max-height: 180px;
             overflow-y: auto;
             margin-top: 10px;
@@ -118,15 +118,29 @@
             border-top: 1px solid #334155;
         }
 
-        .lap-item {
+        .list-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 8px 10px;
             font-family: 'Courier New', Courier, monospace;
             border-bottom: 1px solid #334155;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             color: var(--subtext-color);
+        }
+
+        .delete-btn {
+            background-color: transparent;
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+        }
+
+        .delete-btn:hover {
+            background-color: var(--danger-color);
+            color: white;
         }
 
         .lap-details {
@@ -151,16 +165,16 @@
             <div id="date" class="sub-text">YYYY-MM-DD</div>
         </div>
 
-        <!-- 鬧鐘功能 (24小時制下拉選單) -->
+        <!-- 鬧鐘功能 (支援多組鬧鐘 + 24小時制) -->
         <div class="card">
             <h2>鬧鐘 (Alarm - 24小時制)</h2>
             <div class="input-group">
                 <select id="alarmHour"></select> 時
                 <select id="alarmMinute"></select> 分
                 <select id="alarmSecond"></select> 秒
-                <button id="setAlarmBtn">設定鬧鐘</button>
+                <button id="setAlarmBtn">新增鬧鐘</button>
             </div>
-            <div id="alarmStatus" class="sub-text">未設定鬧鐘</div>
+            <ul id="alarmList" class="item-list"></ul>
         </div>
 
         <!-- 倒數計時功能 -->
@@ -183,7 +197,7 @@
                 <button id="swLapBtn" disabled>計圈</button>
                 <button id="swResetBtn" disabled>重設</button>
             </div>
-            <ul id="swLapList" class="lap-list"></ul>
+            <ul id="swLapList" class="item-list"></ul>
         </div>
     </div>
 
@@ -219,17 +233,18 @@
             const dateOptions = { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' };
             document.getElementById('date').textContent = new Intl.DateTimeFormat('zh-TW', dateOptions).format(now);
 
-            // 檢查鬧鐘
-            checkAlarm(hours, minutes, seconds);
+            // 檢查所有已設定的鬧鐘
+            checkAlarms(hours, minutes, seconds);
 
             // 透過 requestAnimationFrame 達到毫秒級更新
             requestAnimationFrame(updateClock);
         }
 
-        // --- 2. 鬧鐘功能 (24小時制下拉選單產生) ---
+        // --- 2. 多組鬧鐘功能 ---
         const alarmHourSelect = document.getElementById('alarmHour');
         const alarmMinuteSelect = document.getElementById('alarmMinute');
         const alarmSecondSelect = document.getElementById('alarmSecond');
+        const alarmListEl = document.getElementById('alarmList');
 
         // 動態生成 00 ~ 23 小時選單
         for (let i = 0; i < 24; i++) {
@@ -243,29 +258,64 @@
             alarmSecondSelect.add(new Option(val, val));
         }
 
-        let alarmTarget = null;
-        let alarmTriggered = false;
+        // 儲存所有鬧鐘的陣列 [{ id, time, triggered }]
+        let alarms = [];
 
         document.getElementById('setAlarmBtn').addEventListener('click', () => {
             const h = alarmHourSelect.value;
             const m = alarmMinuteSelect.value;
             const s = alarmSecondSelect.value;
+            const targetTime = `${h}:${m}:${s}`;
 
-            alarmTarget = `${h}:${m}:${s}`;
-            alarmTriggered = false;
-            document.getElementById('alarmStatus').textContent = `鬧鐘已設定為（24小時制）：${alarmTarget}`;
+            // 檢查是否重複新增相同時間的鬧鐘
+            if (alarms.some(a => a.time === targetTime)) {
+                alert(`已存在 ${targetTime} 的鬧鐘！`);
+                return;
+            }
+
+            const alarmObj = {
+                id: Date.now(),
+                time: targetTime,
+                triggered: false
+            };
+
+            alarms.push(alarmObj);
+            renderAlarmList();
         });
 
-        function checkAlarm(h, m, s) {
-            if (!alarmTarget || alarmTriggered) return;
-            const currentFormatted = `${h}:${m}:${s}`;
+        function renderAlarmList() {
+            alarmListEl.innerHTML = '';
             
-            if (currentFormatted === alarmTarget) {
-                alarmTriggered = true;
-                playAudioAlert();
-                alert(`⏰ 鬧鐘響起！時間是 ${alarmTarget}`);
-                document.getElementById('alarmStatus').textContent = '鬧鐘已響起';
-            }
+            // 按時間排序（早到晚）
+            alarms.sort((a, b) => a.time.localeCompare(b.time));
+
+            alarms.forEach(alarm => {
+                const li = document.createElement('li');
+                li.className = 'list-item';
+                li.innerHTML = `
+                    <span>⏰ ${alarm.time} ${alarm.triggered ? '<small style="color:var(--danger-color)">(已響起)</small>' : ''}</span>
+                    <button class="delete-btn" onclick="removeAlarm(${alarm.id})">刪除</button>
+                `;
+                alarmListEl.appendChild(li);
+            });
+        }
+
+        function removeAlarm(id) {
+            alarms = alarms.filter(a => a.id !== id);
+            renderAlarmList();
+        }
+
+        function checkAlarms(h, m, s) {
+            const currentFormatted = `${h}:${m}:${s}`;
+
+            alarms.forEach(alarm => {
+                if (!alarm.triggered && alarm.time === currentFormatted) {
+                    alarm.triggered = true;
+                    renderAlarmList();
+                    playAudioAlert();
+                    alert(`⏰ 鬧鐘響起！時間是 ${alarm.time}`);
+                }
+            });
         }
 
         // --- 3. 倒數計時功能 ---
@@ -367,7 +417,7 @@
             swLastLapTime = swElapsedTime;
 
             const li = document.createElement('li');
-            li.className = 'lap-item';
+            li.className = 'list-item';
             li.innerHTML = `
                 <span>圈數 ${swLapCount}</span>
                 <div class="lap-details">
