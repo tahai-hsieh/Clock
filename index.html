@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>線上時鐘 & 多功能計時工具</title>
+    <title>大海專屬時鐘</title>
+    <link rel="icon" href="https://www.pinterest.com/pin/620863498620754160/">
     <style>
         :root {
             --bg-color: #0f172a;
@@ -64,18 +65,23 @@
         .input-group {
             display: flex;
             justify-content: center;
-            gap: 10px;
+            align-items: center;
+            gap: 8px;
             margin: 15px 0;
             flex-wrap: wrap;
         }
 
-        input, button {
-            padding: 10px 15px;
+        input, select, button {
+            padding: 10px 12px;
             border-radius: 6px;
             border: 1px solid #334155;
             background-color: #0f172a;
             color: var(--text-color);
             font-size: 1rem;
+        }
+
+        select {
+            cursor: pointer;
         }
 
         button {
@@ -145,11 +151,13 @@
             <div id="date" class="sub-text">YYYY-MM-DD</div>
         </div>
 
-        <!-- 鬧鐘功能 (24小時制) -->
+        <!-- 鬧鐘功能 (24小時制下拉選單) -->
         <div class="card">
             <h2>鬧鐘 (Alarm - 24小時制)</h2>
             <div class="input-group">
-                <input type="time" id="alarmTime" step="1">
+                <select id="alarmHour"></select> 時
+                <select id="alarmMinute"></select> 分
+                <select id="alarmSecond"></select> 秒
                 <button id="setAlarmBtn">設定鬧鐘</button>
             </div>
             <div id="alarmStatus" class="sub-text">未設定鬧鐘</div>
@@ -218,21 +226,30 @@
             requestAnimationFrame(updateClock);
         }
 
-        // --- 2. 鬧鐘功能 (24小時制格式判斷) ---
+        // --- 2. 鬧鐘功能 (24小時制下拉選單產生) ---
+        const alarmHourSelect = document.getElementById('alarmHour');
+        const alarmMinuteSelect = document.getElementById('alarmMinute');
+        const alarmSecondSelect = document.getElementById('alarmSecond');
+
+        // 動態生成 00 ~ 23 小時選單
+        for (let i = 0; i < 24; i++) {
+            const val = String(i).padStart(2, '0');
+            alarmHourSelect.add(new Option(val, val));
+        }
+        // 動態生成 00 ~ 59 分/秒選單
+        for (let i = 0; i < 60; i++) {
+            const val = String(i).padStart(2, '0');
+            alarmMinuteSelect.add(new Option(val, val));
+            alarmSecondSelect.add(new Option(val, val));
+        }
+
         let alarmTarget = null;
         let alarmTriggered = false;
 
         document.getElementById('setAlarmBtn').addEventListener('click', () => {
-            const alarmInput = document.getElementById('alarmTime').value;
-            if (!alarmInput) {
-                alert('請選擇鬧鐘時間！');
-                return;
-            }
-
-            const parts = alarmInput.split(':');
-            const h = parts[0].padStart(2, '0');
-            const m = parts[1].padStart(2, '0');
-            const s = parts[2] ? parts[2].padStart(2, '0') : '00';
+            const h = alarmHourSelect.value;
+            const m = alarmMinuteSelect.value;
+            const s = alarmSecondSelect.value;
 
             alarmTarget = `${h}:${m}:${s}`;
             alarmTriggered = false;
@@ -301,10 +318,10 @@
             }, 10);
         });
 
-        // --- 4. 碼表功能 (包含總時間與分圈時間計算) ---
+        // --- 4. 碼表功能 ---
         let swStartTime = 0;
         let swElapsedTime = 0;
-        let swLastLapTime = 0; // 紀錄上一次計圈的時間點
+        let swLastLapTime = 0;
         let swTimerInterval = null;
         let swLapCount = 0;
 
@@ -324,14 +341,12 @@
 
         swStartBtn.addEventListener('click', () => {
             if (swTimerInterval) {
-                // 暫停
                 clearInterval(swTimerInterval);
                 swTimerInterval = null;
                 swStartBtn.textContent = '開始';
                 swStartBtn.classList.remove('stop-btn');
                 swLapBtn.disabled = true;
             } else {
-                // 開始 / 繼續
                 swStartTime = Date.now() - swElapsedTime;
                 swTimerInterval = setInterval(() => {
                     swElapsedTime = Date.now() - swStartTime;
@@ -348,9 +363,8 @@
             if (!swTimerInterval) return;
             swLapCount++;
             
-            // 計算距離上一次計圈的時間差
             const lapSplitTime = swElapsedTime - swLastLapTime;
-            swLastLapTime = swElapsedTime; // 更新上一次計圈時間
+            swLastLapTime = swElapsedTime;
 
             const li = document.createElement('li');
             li.className = 'lap-item';
