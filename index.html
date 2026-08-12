@@ -126,7 +126,7 @@
 
         /* 清單樣式 */
         .item-list {
-            max-height: 180px;
+            max-height: 220px;
             overflow-y: auto;
             margin-top: 10px;
             padding: 0;
@@ -474,12 +474,14 @@
             cdSecondsInput.value = '';
         });
 
-        // --- 4. 碼表功能 ---
+        // --- 4. 碼表功能 (即時動態單圈計時) ---
         let swStartTime = 0;
         let swElapsedTime = 0;
         let swLastLapTime = 0;
         let swTimerInterval = null;
         let swLapCount = 0;
+        let currentLapSplitSpan = null;
+        let currentLapTotalSpan = null;
 
         const swDisplay = document.getElementById('stopwatchDisplay');
         const swStartBtn = document.getElementById('swStartBtn');
@@ -495,19 +497,57 @@
             return `${hrs}:${mins}:${secs}.${millis}`;
         }
 
+        // 建立新的一圈 HTML 項目
+        function createNewLapItem(lapNum) {
+            const li = document.createElement('li');
+            li.className = 'list-item';
+            li.innerHTML = `
+                <span>圈數 ${lapNum}</span>
+                <div class="lap-details">
+                    <span class="lap-time-split">+00:00:00.000</span>
+                    <br>
+                    <span class="lap-time-total">總時間: 00:00:00.000</span>
+                </div>
+            `;
+            swLapList.prepend(li);
+            currentLapSplitSpan = li.querySelector('.lap-time-split');
+            currentLapTotalSpan = li.querySelector('.lap-time-total');
+        }
+
         swStartBtn.addEventListener('click', () => {
             if (swTimerInterval) {
+                // 暫停
                 clearInterval(swTimerInterval);
                 swTimerInterval = null;
                 swStartBtn.textContent = '開始';
                 swStartBtn.classList.remove('stop-btn');
                 swLapBtn.disabled = true;
             } else {
+                // 開始 / 繼續
                 swStartTime = Date.now() - swElapsedTime;
+                
+                // 如果是第一次開始，自動建立「圈數 1」
+                if (swLapCount === 0) {
+                    swLapCount = 1;
+                    swLastLapTime = 0;
+                    createNewLapItem(swLapCount);
+                }
+
                 swTimerInterval = setInterval(() => {
                     swElapsedTime = Date.now() - swStartTime;
-                    swDisplay.textContent = formatStopwatchTime(swElapsedTime);
+                    const formattedTotal = formatStopwatchTime(swElapsedTime);
+                    
+                    // 更新上方大碼表
+                    swDisplay.textContent = formattedTotal;
+                    
+                    // 動態更新當前這一圈的單圈秒數與累積總時間
+                    const currentSplit = swElapsedTime - swLastLapTime;
+                    if (currentLapSplitSpan && currentLapTotalSpan) {
+                        currentLapSplitSpan.textContent = `+${formatStopwatchTime(currentSplit)}`;
+                        currentLapTotalSpan.textContent = `總時間: ${formattedTotal}`;
+                    }
                 }, 10);
+
                 swStartBtn.textContent = '暫停';
                 swStartBtn.classList.add('stop-btn');
                 swLapBtn.disabled = false;
@@ -515,24 +555,16 @@
             }
         });
 
+        // 按下「計圈」：結算目前這圈，並自動開啟新的一圈繼續跑
         swLapBtn.addEventListener('click', () => {
             if (!swTimerInterval) return;
-            swLapCount++;
             
-            const lapSplitTime = swElapsedTime - swLastLapTime;
+            // 結算上一圈時間
             swLastLapTime = swElapsedTime;
-
-            const li = document.createElement('li');
-            li.className = 'list-item';
-            li.innerHTML = `
-                <span>圈數 ${swLapCount}</span>
-                <div class="lap-details">
-                    <span class="lap-time-split">+${formatStopwatchTime(lapSplitTime)}</span>
-                    <br>
-                    <span>總時間: ${formatStopwatchTime(swElapsedTime)}</span>
-                </div>
-            `;
-            swLapList.prepend(li);
+            
+            // 開啟新一圈
+            swLapCount++;
+            createNewLapItem(swLapCount);
         });
 
         swResetBtn.addEventListener('click', () => {
@@ -541,6 +573,9 @@
             swElapsedTime = 0;
             swLastLapTime = 0;
             swLapCount = 0;
+            currentLapSplitSpan = null;
+            currentLapTotalSpan = null;
+            
             swDisplay.textContent = '00:00:00.000';
             swStartBtn.textContent = '開始';
             swStartBtn.classList.remove('stop-btn');
