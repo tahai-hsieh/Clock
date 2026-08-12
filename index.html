@@ -444,7 +444,7 @@
             }
 
             countdownEndTime = Date.now() + totalMs;
-            btn.textContent = '停止倒數';
+            btn.textContent = '開始倒數';
             btn.classList.add('stop-btn');
 
             countdownInterval = setInterval(() => {
@@ -474,7 +474,7 @@
             cdSecondsInput.value = '';
         });
 
-        // --- 4. 碼表功能 (即時動態單圈計時) ---
+        // --- 4. 高效無延遲碼表功能 ---
         let swStartTime = 0;
         let swElapsedTime = 0;
         let swLastLapTime = 0;
@@ -497,21 +497,38 @@
             return `${hrs}:${mins}:${secs}.${millis}`;
         }
 
-        // 建立新的一圈 HTML 項目
+        // 建立新一圈 DOM 並直接保留引用 (避免重複搜尋 DOM 產生延遲)
         function createNewLapItem(lapNum) {
             const li = document.createElement('li');
             li.className = 'list-item';
-            li.innerHTML = `
-                <span>圈數 ${lapNum}</span>
-                <div class="lap-details">
-                    <span class="lap-time-split">+00:00:00.000</span>
-                    <br>
-                    <span class="lap-time-total">總時間: 00:00:00.000</span>
-                </div>
-            `;
+            
+            const lapTitle = document.createElement('span');
+            lapTitle.textContent = `圈數 ${lapNum}`;
+
+            const detailsDiv = document.createElement('div');
+            detailsDiv.className = 'lap-details';
+
+            const splitSpan = document.createElement('span');
+            splitSpan.className = 'lap-time-split';
+            splitSpan.textContent = '+00:00:00.000';
+
+            const br = document.createElement('br');
+
+            const totalSpan = document.createElement('span');
+            totalSpan.textContent = '總時間: 00:00:00.000';
+
+            detailsDiv.appendChild(splitSpan);
+            detailsDiv.appendChild(br);
+            detailsDiv.appendChild(totalSpan);
+
+            li.appendChild(lapTitle);
+            li.appendChild(detailsDiv);
+
             swLapList.prepend(li);
-            currentLapSplitSpan = li.querySelector('.lap-time-split');
-            currentLapTotalSpan = li.querySelector('.lap-time-total');
+
+            // 直接保存 DOM 節點參考
+            currentLapSplitSpan = splitSpan;
+            currentLapTotalSpan = totalSpan;
         }
 
         swStartBtn.addEventListener('click', () => {
@@ -526,7 +543,7 @@
                 // 開始 / 繼續
                 swStartTime = Date.now() - swElapsedTime;
                 
-                // 如果是第一次開始，自動建立「圈數 1」
+                // 首次開始時自動建立「圈數 1」
                 if (swLapCount === 0) {
                     swLapCount = 1;
                     swLastLapTime = 0;
@@ -535,15 +552,16 @@
 
                 swTimerInterval = setInterval(() => {
                     swElapsedTime = Date.now() - swStartTime;
+                    
+                    // 統一在同一個 Tick 計算，確保絕對同步無延遲
                     const formattedTotal = formatStopwatchTime(swElapsedTime);
-                    
-                    // 更新上方大碼表
-                    swDisplay.textContent = formattedTotal;
-                    
-                    // 動態更新當前這一圈的單圈秒數與累積總時間
                     const currentSplit = swElapsedTime - swLastLapTime;
+                    const formattedSplit = formatStopwatchTime(currentSplit);
+
+                    swDisplay.textContent = formattedTotal;
+
                     if (currentLapSplitSpan && currentLapTotalSpan) {
-                        currentLapSplitSpan.textContent = `+${formatStopwatchTime(currentSplit)}`;
+                        currentLapSplitSpan.textContent = `+${formattedSplit}`;
                         currentLapTotalSpan.textContent = `總時間: ${formattedTotal}`;
                     }
                 }, 10);
@@ -555,7 +573,7 @@
             }
         });
 
-        // 按下「計圈」：結算目前這圈，並自動開啟新的一圈繼續跑
+        // 按下「計圈」：結算目前這圈，並自動開啟新的一圈
         swLapBtn.addEventListener('click', () => {
             if (!swTimerInterval) return;
             
