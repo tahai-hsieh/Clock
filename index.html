@@ -107,6 +107,17 @@
             color: white;
         }
 
+        .clear-btn {
+            background-color: transparent;
+            color: var(--subtext-color);
+            border: 1px solid #334155;
+        }
+
+        .clear-btn:hover {
+            background-color: #334155;
+            color: var(--text-color);
+        }
+
         .timer-display {
             font-family: 'Courier New', Courier, monospace;
             font-size: 2rem;
@@ -230,6 +241,7 @@
                 <select id="alarmMinute"></select> 分
                 <select id="alarmSecond"></select> 秒
                 <button id="setAlarmBtn">新增鬧鐘</button>
+                <button id="clearAlarmInputBtn" class="clear-btn">清除所有</button>
             </div>
             <ul id="alarmList" class="item-list"></ul>
         </div>
@@ -241,6 +253,7 @@
                 <input type="number" id="cdMinutes" placeholder="分" min="0" style="width: 70px;">
                 <input type="number" id="cdSeconds" placeholder="秒" min="0" max="59" style="width: 70px;">
                 <button id="startCdBtn">開始倒數</button>
+                <button id="clearCdInputBtn" class="clear-btn">清除所有</button>
             </div>
             <div id="countdownDisplay" class="timer-display">00:00.000</div>
         </div>
@@ -365,6 +378,13 @@
             renderAlarmList();
         });
 
+        // 鬧鐘「清除所有」按鈕：重置下拉選單為 00:00:00
+        document.getElementById('clearAlarmInputBtn').addEventListener('click', () => {
+            alarmHourSelect.selectedIndex = 0;
+            alarmMinuteSelect.selectedIndex = 0;
+            alarmSecondSelect.selectedIndex = 0;
+        });
+
         function renderAlarmList() {
             alarmListEl.innerHTML = '';
             alarms.sort((a, b) => a.time.localeCompare(b.time));
@@ -400,6 +420,8 @@
         // --- 3. 倒數計時功能 ---
         let countdownInterval = null;
         let countdownEndTime = null;
+        const cdMinutesInput = document.getElementById('cdMinutes');
+        const cdSecondsInput = document.getElementById('cdSeconds');
 
         document.getElementById('startCdBtn').addEventListener('click', function() {
             const btn = this;
@@ -412,8 +434,8 @@
                 return;
             }
 
-            const mins = parseInt(document.getElementById('cdMinutes').value) || 0;
-            const secs = parseInt(document.getElementById('cdSeconds').value) || 0;
+            const mins = parseInt(cdMinutesInput.value) || 0;
+            const secs = parseInt(cdSecondsInput.value) || 0;
             const totalMs = (mins * 60 + secs) * 1000;
 
             if (totalMs <= 0) {
@@ -444,6 +466,12 @@
 
                 document.getElementById('countdownDisplay').textContent = `${rMin}:${rSec}.${rMs}`;
             }, 10);
+        });
+
+        // 倒數計時器「清除所有」按鈕：清空分、秒輸入框
+        document.getElementById('clearCdInputBtn').addEventListener('click', () => {
+            cdMinutesInput.value = '';
+            cdSecondsInput.value = '';
         });
 
         // --- 4. 碼表功能 ---
@@ -538,14 +566,14 @@
                     osc.frequency.setValueAtTime(880, ctx.currentTime);
                     osc.connect(ctx.destination);
                     osc.start();
-                    osc.stop(ctx.currentTime + 0.3); // 每次響 0.3 秒
+                    osc.stop(ctx.currentTime + 0.3);
                 } catch (e) {
                     console.log('無法播放音效:', e);
                 }
             }
 
             playBeep();
-            alertBeepInterval = setInterval(playBeep, 500); // 每 0.5 秒持續重複嗶嗶叫
+            alertBeepInterval = setInterval(playBeep, 500);
         }
 
         function stopContinuousBeep() {
@@ -557,13 +585,13 @@
 
         function showModalAlert(msg) {
             modalMessage.textContent = msg;
-            modalOverlay.classList.add('active'); // 顯示彈出視窗
-            startContinuousBeep(); // 開始持續嗶嗶叫（不會被 pause）
+            modalOverlay.classList.add('active');
+            startContinuousBeep();
         }
 
         modalCloseBtn.addEventListener('click', () => {
-            modalOverlay.classList.remove('active'); // 關閉彈出視窗
-            stopContinuousBeep(); // 停止蜂鳴聲
+            modalOverlay.classList.remove('active');
+            stopContinuousBeep();
         });
 
         // 啟動主時鐘
