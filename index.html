@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <!-- 禁止使用者手勢縮放 (防止雙擊放大) -->
+    <!-- 禁止手勢縮放，並允許快速點擊 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>大海專屬時鐘</title>
     
@@ -33,7 +33,7 @@
             align-items: center;
             min-height: 100vh;
             box-sizing: border-box;
-            /* 禁用雙擊縮放手勢 */
+            /* 禁用雙擊放大，同時允許快速連續點擊 */
             touch-action: manipulation;
             -webkit-user-select: none;
             user-select: none;
@@ -329,16 +329,6 @@
             };
         }
         makeFaviconCircle();
-
-        // 防止 iOS 快速雙擊放大畫面 (Double-tap to zoom)
-        let lastTouchEnd = 0;
-        document.addEventListener('touchend', function(event) {
-            const now = (new Date()).getTime();
-            if (now - lastTouchEnd <= 300) {
-                event.preventDefault();
-            }
-            lastTouchEnd = now;
-        }, false);
 
         // --- 全域 AudioContext ---
         let globalAudioCtx = null;
