@@ -5,10 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>大海專屬時鐘</title>
     
-    <!-- 1. 加入主畫面：直接使用原始 icon.png (保持原圖方形) -->
-    <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
-    
-    <!-- 2. 網頁分頁圖標：預設先載入 icon.png (後續由 JS 自動裁切成圓形) -->
+    <!-- iOS / iPadOS Safari 加入主畫面專用圖示 (需在同資料夾放置 icon.png) -->
+    <link id="appleIcon" rel="apple-touch-icon" sizes="180x180" href="icon.png">
+    <!-- Android / Chrome / 一般瀏覽器分頁圖示 -->
     <link id="favicon" rel="icon" type="image/png" href="icon.png">
 
     <style>
@@ -19,6 +18,7 @@
             --text-color: #f8fafc;
             --subtext-color: #94a3b8;
             --danger-color: #ef4444;
+            --success-color: #22c55e;
         }
 
         body {
@@ -36,7 +36,13 @@
 
         h1 {
             color: var(--accent-color);
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+        }
+
+        .audio-notice {
+            font-size: 0.85rem;
+            color: var(--subtext-color);
+            margin-bottom: 15px;
         }
 
         .container {
@@ -225,6 +231,7 @@
 <body>
 
     <h1>臺灣標準時間多功能時鐘</h1>
+    <div class="audio-notice">💡 提示：點擊頁面任意按鈕可自動啟用手機蜂鳴器權限</div>
 
     <div class="container">
         <!-- 當前時間 (精確至毫秒，24小時制) -->
@@ -282,7 +289,7 @@
     </div>
 
     <script>
-        // --- 0. 僅將網頁分頁圖標 (Favicon) 裁切轉換為圓形，保持加入主畫面為原圖 ---
+        // --- 0. 自動將 icon.png 裁切轉換為圓形圖示 ---
         function makeFaviconCircle() {
             const img = new Image();
             img.crossOrigin = "Anonymous";
@@ -302,11 +309,25 @@
                 ctx.drawImage(img, 0, 0, size, size);
 
                 const circularDataUrl = canvas.toDataURL('image/png');
-                // 僅替換分頁標籤列的圖示，不影響 apple-touch-icon
                 document.getElementById('favicon').href = circularDataUrl;
             };
         }
         makeFaviconCircle();
+
+        // --- 全域 AudioContext (解決手機主畫面自動播放限制) ---
+        let globalAudioCtx = null;
+
+        function initAudioContext() {
+            if (!globalAudioCtx) {
+                globalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (globalAudioCtx.state === 'suspended') {
+                globalAudioCtx.resume();
+            }
+        }
+
+        // 監聽第一次使用者點擊動作以解鎖音效
+        document.addEventListener('click', initAudioContext, { once: false });
 
         // --- 1. 精確時鐘 (毫秒 + 強制 24 小時制) ---
         function updateClock() {
@@ -359,6 +380,7 @@
         let alarms = [];
 
         document.getElementById('setAlarmBtn').addEventListener('click', () => {
+            initAudioContext(); // 點擊時啟用音效
             const h = alarmHourSelect.value;
             const m = alarmMinuteSelect.value;
             const s = alarmSecondSelect.value;
@@ -379,7 +401,6 @@
             renderAlarmList();
         });
 
-        // 鬧鐘「清除所有」按鈕：重置下拉選單為 00:00:00
         document.getElementById('clearAlarmInputBtn').addEventListener('click', () => {
             alarmHourSelect.selectedIndex = 0;
             alarmMinuteSelect.selectedIndex = 0;
@@ -425,6 +446,7 @@
         const cdSecondsInput = document.getElementById('cdSeconds');
 
         document.getElementById('startCdBtn').addEventListener('click', function() {
+            initAudioContext(); // 點擊時啟用音效
             const btn = this;
             if (countdownInterval) {
                 clearInterval(countdownInterval);
@@ -469,13 +491,12 @@
             }, 10);
         });
 
-        // 倒數計時器「清除所有」按鈕：清空分、秒輸入框
         document.getElementById('clearCdInputBtn').addEventListener('click', () => {
             cdMinutesInput.value = '';
             cdSecondsInput.value = '';
         });
 
-        // --- 4. 高效無延遲碼表功能 ---
+        // --- 4. 碼表功能 ---
         let swStartTime = 0;
         let swElapsedTime = 0;
         let swLastLapTime = 0;
@@ -498,7 +519,6 @@
             return `${hrs}:${mins}:${secs}.${millis}`;
         }
 
-        // 建立新一圈 DOM 並直接保留引用 (避免重複搜尋 DOM 產生延遲)
         function createNewLapItem(lapNum) {
             const li = document.createElement('li');
             li.className = 'list-item';
@@ -527,24 +547,21 @@
 
             swLapList.prepend(li);
 
-            // 直接保存 DOM 節點參考
             currentLapSplitSpan = splitSpan;
             currentLapTotalSpan = totalSpan;
         }
 
         swStartBtn.addEventListener('click', () => {
+            initAudioContext();
             if (swTimerInterval) {
-                // 暫停
                 clearInterval(swTimerInterval);
                 swTimerInterval = null;
                 swStartBtn.textContent = '開始';
                 swStartBtn.classList.remove('stop-btn');
                 swLapBtn.disabled = true;
             } else {
-                // 開始 / 繼續
                 swStartTime = Date.now() - swElapsedTime;
                 
-                // 首次開始時自動建立「圈數 1」
                 if (swLapCount === 0) {
                     swLapCount = 1;
                     swLastLapTime = 0;
@@ -554,7 +571,6 @@
                 swTimerInterval = setInterval(() => {
                     swElapsedTime = Date.now() - swStartTime;
                     
-                    // 統一在同一個 Tick 計算，確保絕對同步無延遲
                     const formattedTotal = formatStopwatchTime(swElapsedTime);
                     const currentSplit = swElapsedTime - swLastLapTime;
                     const formattedSplit = formatStopwatchTime(currentSplit);
@@ -574,14 +590,10 @@
             }
         });
 
-        // 按下「計圈」：結算目前這圈，並自動開啟新的一圈
         swLapBtn.addEventListener('click', () => {
             if (!swTimerInterval) return;
             
-            // 結算上一圈時間
             swLastLapTime = swElapsedTime;
-            
-            // 開啟新一圈
             swLapCount++;
             createNewLapItem(swLapCount);
         });
@@ -603,7 +615,7 @@
             swLapList.innerHTML = '';
         });
 
-        // --- 5. 無間斷蜂鳴器 & 自訂 Modal 控制 ---
+        // --- 5. 無間斷蜂鳴器 & 解鎖 AudioContext 控制 ---
         let alertBeepInterval = null;
         const modalOverlay = document.getElementById('alertModal');
         const modalMessage = document.getElementById('modalMessage');
@@ -611,16 +623,17 @@
 
         function startContinuousBeep() {
             stopContinuousBeep();
+            initAudioContext();
 
             function playBeep() {
                 try {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    const osc = ctx.createOscillator();
+                    if (!globalAudioCtx) return;
+                    const osc = globalAudioCtx.createOscillator();
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(880, ctx.currentTime);
-                    osc.connect(ctx.destination);
+                    osc.frequency.setValueAtTime(880, globalAudioCtx.currentTime);
+                    osc.connect(globalAudioCtx.destination);
                     osc.start();
-                    osc.stop(ctx.currentTime + 0.3);
+                    osc.stop(globalAudioCtx.currentTime + 0.3);
                 } catch (e) {
                     console.log('無法播放音效:', e);
                 }
