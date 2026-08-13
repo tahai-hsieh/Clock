@@ -95,7 +95,6 @@
             background-color: #0f172a;
             color: var(--text-color);
             font-size: 1rem;
-            /* 避免點擊輸入框時被自動放大 */
             touch-action: manipulation;
         }
 
@@ -297,6 +296,15 @@
     </div>
 
     <script>
+        // --- 離線快取註冊 (Service Worker) ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => {
+                    console.log('Service Worker 註冊失敗: ', err);
+                });
+            });
+        }
+
         // --- 0. 僅將網頁分頁圖標 (Favicon) 裁切轉換為圓形 ---
         function makeFaviconCircle() {
             const img = new Image();
@@ -332,7 +340,7 @@
             lastTouchEnd = now;
         }, false);
 
-        // --- 全域 AudioContext (解決手機主畫面自動播放限制) ---
+        // --- 全域 AudioContext ---
         let globalAudioCtx = null;
 
         function initAudioContext() {
