@@ -175,6 +175,7 @@
         .alarm-remaining {
             color: var(--accent-color);
             font-size: 0.82rem;
+            font-family: 'Courier New', Courier, monospace;
         }
 
         .delete-btn {
@@ -362,8 +363,9 @@
 
         document.addEventListener('click', initAudioContext, { once: false });
 
-        // --- 1. 精確時鐘 (毫秒 + 強制 24 小時制) ---
+        // --- 1. 精確時鐘 (單一時間源同步) ---
         function updateClock() {
+            // 抓取當前的唯一精確時間物件
             const now = new Date();
             
             const options = { 
@@ -389,6 +391,7 @@
             const dateOptions = { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' };
             document.getElementById('date').textContent = new Intl.DateTimeFormat('zh-TW', dateOptions).format(now);
 
+            // 同步檢查鬧鐘與更新倒數，確保毫秒數與主時鐘完全無縫對齊
             checkAlarms(hours, minutes, seconds);
             updateAlarmRemainingTimes(now);
 
@@ -480,7 +483,7 @@
             });
         }
 
-        // 動態即時計算每一組鬧鐘剩餘時間
+        // 動態精確計算與主時鐘 100% 同步的鬧鐘倒數（含毫秒）
         function updateAlarmRemainingTimes(nowDate) {
             alarms.forEach(alarm => {
                 const remEl = document.getElementById(`alarm-rem-${alarm.id}`);
@@ -492,25 +495,26 @@
                     return;
                 }
 
-                // 建立目標時間 Date 物件
+                // 建立目標時間 Date 物件 (毫秒設為 0)
                 const target = new Date(nowDate);
                 target.setHours(alarm.hour, alarm.minute, alarm.second, 0);
 
-                // 若目標時間小於等於當前時間，代表是明天的鬧鐘
+                // 若目標時間小於或等於當前時間，視為明天的鬧鐘
                 if (target <= nowDate) {
                     target.setDate(target.getDate() + 1);
                 }
 
-                const diffMs = target - nowDate;
-                const diffSec = Math.floor(diffMs / 1000);
+                // 計算精確的剩餘毫秒數
+                const diffMs = target.getTime() - nowDate.getTime();
 
-                const hrs = Math.floor(diffSec / 3600);
-                const mins = Math.floor((diffSec % 3600) / 60);
-                const secs = diffSec % 60;
+                const hrs = Math.floor(diffMs / 3600000);
+                const mins = Math.floor((diffMs % 3600000) / 60000);
+                const secs = Math.floor((diffMs % 60000) / 1000);
+                const ms = String(diffMs % 1000).padStart(3, '0');
 
                 let remText = '還剩 ';
                 if (hrs > 0) remText += `${String(hrs).padStart(2, '0')}小時 `;
-                remText += `${String(mins).padStart(2, '0')}分 ${String(secs).padStart(2, '0')}秒`;
+                remText += `${String(mins).padStart(2, '0')}分 ${String(secs).padStart(2, '0')}.${ms}秒`;
 
                 remEl.textContent = remText;
                 remEl.style.color = 'var(--accent-color)';
