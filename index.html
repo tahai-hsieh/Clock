@@ -159,6 +159,24 @@
             color: var(--subtext-color);
         }
 
+        .alarm-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+        }
+
+        .alarm-time-str {
+            color: var(--text-color);
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        .alarm-remaining {
+            color: var(--accent-color);
+            font-size: 0.82rem;
+        }
+
         .delete-btn {
             background-color: transparent;
             color: var(--danger-color);
@@ -372,6 +390,7 @@
             document.getElementById('date').textContent = new Intl.DateTimeFormat('zh-TW', dateOptions).format(now);
 
             checkAlarms(hours, minutes, seconds);
+            updateAlarmRemainingTimes(now);
 
             requestAnimationFrame(updateClock);
         }
@@ -409,6 +428,9 @@
             const alarmObj = {
                 id: Date.now(),
                 time: targetTime,
+                hour: parseInt(h, 10),
+                minute: parseInt(m, 10),
+                second: parseInt(s, 10),
                 triggered: false
             };
 
@@ -429,8 +451,12 @@
             alarms.forEach(alarm => {
                 const li = document.createElement('li');
                 li.className = 'list-item';
+                li.id = `alarm-item-${alarm.id}`;
                 li.innerHTML = `
-                    <span>⏰ ${alarm.time} ${alarm.triggered ? '<small style="color:var(--danger-color)">(已響起)</small>' : ''}</span>
+                    <div class="alarm-info">
+                        <span class="alarm-time-str">⏰ ${alarm.time}</span>
+                        <span class="alarm-remaining" id="alarm-rem-${alarm.id}">計算中...</span>
+                    </div>
                     <button class="delete-btn" onclick="removeAlarm(${alarm.id})">刪除</button>
                 `;
                 alarmListEl.appendChild(li);
@@ -451,6 +477,43 @@
                     renderAlarmList();
                     showModalAlert(`⏰ 鬧鐘響起！時間是 ${alarm.time}`);
                 }
+            });
+        }
+
+        // 動態即時計算每一組鬧鐘剩餘時間
+        function updateAlarmRemainingTimes(nowDate) {
+            alarms.forEach(alarm => {
+                const remEl = document.getElementById(`alarm-rem-${alarm.id}`);
+                if (!remEl) return;
+
+                if (alarm.triggered) {
+                    remEl.textContent = '(已響起)';
+                    remEl.style.color = 'var(--danger-color)';
+                    return;
+                }
+
+                // 建立目標時間 Date 物件
+                const target = new Date(nowDate);
+                target.setHours(alarm.hour, alarm.minute, alarm.second, 0);
+
+                // 若目標時間小於等於當前時間，代表是明天的鬧鐘
+                if (target <= nowDate) {
+                    target.setDate(target.getDate() + 1);
+                }
+
+                const diffMs = target - nowDate;
+                const diffSec = Math.floor(diffMs / 1000);
+
+                const hrs = Math.floor(diffSec / 3600);
+                const mins = Math.floor((diffSec % 3600) / 60);
+                const secs = diffSec % 60;
+
+                let remText = '還剩 ';
+                if (hrs > 0) remText += `${String(hrs).padStart(2, '0')}小時 `;
+                remText += `${String(mins).padStart(2, '0')}分 ${String(secs).padStart(2, '0')}秒`;
+
+                remEl.textContent = remText;
+                remEl.style.color = 'var(--accent-color)';
             });
         }
 
