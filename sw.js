@@ -1,21 +1,11 @@
-const CACHE_NAME = 'tahai-clock-v1';
-const ASSETS_TO_CACHE = [
-    './',
-    './index.html',
-    './icon.png'
-];
+const CACHE_NAME = 'tahai-clock-v3';
 
-// 1. 安裝 Service Worker 並快取檔案
+// 安裝時預先快取基本檔案
 self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(ASSETS_TO_CACHE);
-        })
-    );
     self.skipWaiting();
 });
 
-// 2. 啟用並清理舊快取
+// 啟用時清除舊快取
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
@@ -31,14 +21,23 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// 3. 離線攔截請求：優先從快取讀取
+// 網路優先策略：有網路就抓最新版，沒網路才用快取
 self.addEventListener('fetch', (event) => {
     event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-                return cachedResponse;
-            }
-            return fetch(event.request);
-        })
+        fetch(event.request)
+            .then((networkResponse) => {
+                // 網路正常，更新快取的檔案
+                if (networkResponse && networkResponse.status === 200) {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
+                }
+                return networkResponse;
+            })
+            .catch(() => {
+                // 沒網路時才從快取抓取
+                return caches.match(event.request);
+            })
     );
 });
