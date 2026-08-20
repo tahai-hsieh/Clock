@@ -287,6 +287,7 @@
                 <input type="number" id="cdMinutes" placeholder="分" min="0" style="width: 70px;">
                 <input type="number" id="cdSeconds" placeholder="秒" min="0" max="59" style="width: 70px;">
                 <button id="startCdBtn">開始倒數</button>
+                <button id="resetCdBtn" class="clear-btn">重設計時</button>
                 <button id="clearCdInputBtn" class="clear-btn">清除所有</button>
             </div>
             <div id="countdownDisplay" class="timer-display">00:00.000</div>
@@ -365,7 +366,6 @@
 
         // --- 1. 精確時鐘 (單一時間源同步) ---
         function updateClock() {
-            // 抓取當前的唯一精確時間物件
             const now = new Date();
             
             const options = { 
@@ -391,7 +391,6 @@
             const dateOptions = { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' };
             document.getElementById('date').textContent = new Intl.DateTimeFormat('zh-TW', dateOptions).format(now);
 
-            // 同步檢查鬧鐘與更新倒數，確保毫秒數與主時鐘完全無縫對齊
             checkAlarms(hours, minutes, seconds);
             updateAlarmRemainingTimes(now);
 
@@ -483,7 +482,6 @@
             });
         }
 
-        // 動態精確計算與主時鐘 100% 同步的鬧鐘倒數（含毫秒）
         function updateAlarmRemainingTimes(nowDate) {
             alarms.forEach(alarm => {
                 const remEl = document.getElementById(`alarm-rem-${alarm.id}`);
@@ -495,16 +493,13 @@
                     return;
                 }
 
-                // 建立目標時間 Date 物件 (毫秒設為 0)
                 const target = new Date(nowDate);
                 target.setHours(alarm.hour, alarm.minute, alarm.second, 0);
 
-                // 若目標時間小於或等於當前時間，視為明天的鬧鐘
                 if (target <= nowDate) {
                     target.setDate(target.getDate() + 1);
                 }
 
-                // 計算精確的剩餘毫秒數
                 const diffMs = target.getTime() - nowDate.getTime();
 
                 const hrs = Math.floor(diffMs / 3600000);
@@ -521,58 +516,84 @@
             });
         }
 
-        // --- 3. 倒數計時功能 ---
+        // --- 3. 倒數計時功能 (支援暫停/繼續/重設) ---
         let countdownInterval = null;
+        let countdownRemainingMs = 0; // 保存剩餘毫秒數
         let countdownEndTime = null;
+
         const cdMinutesInput = document.getElementById('cdMinutes');
         const cdSecondsInput = document.getElementById('cdSeconds');
+        const startCdBtn = document.getElementById('startCdBtn');
+        const resetCdBtn = document.getElementById('resetCdBtn');
 
-        document.getElementById('startCdBtn').addEventListener('click', function() {
+        function formatCountdownTime(ms) {
+            const rMin = String(Math.floor(ms / 60000)).padStart(2, '0');
+            const rSec = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
+            const rMs = String(ms % 1000).padStart(3, '0');
+            return `${rMin}:${rSec}.${rMs}`;
+        }
+
+        startCdBtn.addEventListener('click', function() {
             initAudioContext();
-            const btn = this;
+            
+            // 點擊「暫停倒數」
             if (countdownInterval) {
                 clearInterval(countdownInterval);
                 countdownInterval = null;
-                document.getElementById('countdownDisplay').textContent = '00:00.000';
-                btn.textContent = '開始倒數';
-                btn.classList.remove('stop-btn');
+                countdownRemainingMs = Math.max(0, countdownEndTime - Date.now());
+                startCdBtn.textContent = '繼續倒數';
+                startCdBtn.classList.remove('stop-btn');
                 return;
             }
 
-            const mins = parseInt(cdMinutesInput.value) || 0;
-            const secs = parseInt(cdSecondsInput.value) || 0;
-            const totalMs = (mins * 60 + secs) * 1000;
+            // 開始 / 繼續倒數
+            if (countdownRemainingMs <= 0) {
+                const mins = parseInt(cdMinutesInput.value) || 0;
+                const secs = parseInt(cdSecondsInput.value) || 0;
+                countdownRemainingMs = (mins * 60 + secs) * 1000;
+            }
 
-            if (totalMs <= 0) {
+            if (countdownRemainingMs <= 0) {
                 alert('請輸入有效的倒數時間！');
                 return;
             }
 
-            countdownEndTime = Date.now() + totalMs;
-            btn.textContent = '開始倒數';
-            btn.classList.add('stop-btn');
+            countdownEndTime = Date.now() + countdownRemainingMs;
+            startCdBtn.textContent = '暫停倒數';
+            startCdBtn.classList.add('stop-btn');
 
             countdownInterval = setInterval(() => {
                 const remaining = countdownEndTime - Date.now();
+                countdownRemainingMs = remaining;
 
                 if (remaining <= 0) {
                     clearInterval(countdownInterval);
                     countdownInterval = null;
+                    countdownRemainingMs = 0;
                     document.getElementById('countdownDisplay').textContent = '00:00.000';
-                    btn.textContent = '開始倒數';
-                    btn.classList.remove('stop-btn');
+                    startCdBtn.textContent = '開始倒數';
+                    startCdBtn.classList.remove('stop-btn');
                     showModalAlert('⏱️ 倒數計時結束！');
                     return;
                 }
 
-                const rMin = String(Math.floor(remaining / 60000)).padStart(2, '0');
-                const rSec = String(Math.floor((remaining % 60000) / 1000)).padStart(2, '0');
-                const rMs = String(remaining % 1000).padStart(3, '0');
-
-                document.getElementById('countdownDisplay').textContent = `${rMin}:${rSec}.${rMs}`;
+                document.getElementById('countdownDisplay').textContent = formatCountdownTime(remaining);
             }, 10);
         });
 
+        // 「重設計時」按鈕：停止倒數並將畫面歸零
+        resetCdBtn.addEventListener('click', () => {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            countdownRemainingMs = 0;
+            document.getElementById('countdownDisplay').textContent = '00:00.000';
+            startCdBtn.textContent = '開始倒數';
+            startCdBtn.classList.remove('stop-btn');
+        });
+
+        // 「清除所有」按鈕：僅清空輸入框
         document.getElementById('clearCdInputBtn').addEventListener('click', () => {
             cdMinutesInput.value = '';
             cdSecondsInput.value = '';
